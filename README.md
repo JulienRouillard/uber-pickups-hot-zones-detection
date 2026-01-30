@@ -1,128 +1,179 @@
-# Uber Pickups - Hot Zones Detection
+# 🗺️ Uber Hot-Zones Detection with Adaptive DBSCAN
 
-**Machine Learning project for identifying optimal driver positioning zones in New York City using unsupervised clustering algorithms.**
+**Self-tuning geospatial clustering system for driver positioning optimization in NYC**
 
-## 📊 Project Overview
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0+-orange.svg)](https://scikit-learn.org/)
 
-This project analyzes Uber pickup data to identify **hot zones** where driver demand is highest at specific times. By clustering pickup locations, the solution helps optimize driver distribution across NYC.
+---
 
-### Key Results
+## 🎯 Problem & Solution
 
-- **168 hot-zone maps** generated (7 days × 24 hours)
-- **DBScan clustering** selected for superior outlier handling and adaptive cluster detection
-- **Automatic parameter tuning** using k-distance method for epsilon estimation
+**The Challenge**: Uber drivers often position themselves in low-demand areas, leading to 10-15 minute wait times and user cancellations when wait exceeds 5-7 minutes.
 
-<p align="center">
-  <img src="maps/mercredi_14_15.png" alt="Thursday between 2 PM and 3 PM" width="45%">
-  <img src="maps/vendredi_22_23.png" alt="Friday between 10 PM and 11 PM" width="45%">
-  <br>
-  <em>Example: Hot zones comparison between Thursday and Friday at different hours</em>
-</p>
+**The Solution**: Automated detection of high-demand zones for any day/hour combination, enabling data-driven positioning recommendations.
 
-## 🎯 Business Problem
+---
 
-Uber identified that drivers are often not positioned where demand is highest, leading to:
-- **10-15 minute wait times** in certain neighborhoods
-- **User cancellations** when wait exceeds 5-7 minutes
-- **Inefficient driver distribution** across the city
+## 📊 Key Achievements
 
-**Solution**: Create an algorithm to recommend hot-zones where drivers should position themselves based on day of week and hour.
+| Metric | Value |
+|--------|-------|
+| **Dataset processed** | 4.5M pickups (April-September 2014) |
+| **Time windows analyzed** | 168 (7 days × 24 hours) |
+| **Clusters detected per slot** | 3+ (adaptive to demand density) |
+| **Outliers filtered** | ~15-20% for clearer zone identification |
+| **Total processing time** | 2 hours |
+| **Automation level** | Fully automated hyperparameter tuning |
 
-## 🔬 Methodology
+<div align="center">
+  <img src="maps/mercredi_14_15.png" width="45%" alt="Thursday 2-3 PM"/>
+  <img src="maps/vendredi_22_23.png" width="45%" alt="Friday 10-11 PM"/>
+  <p><i>Example: Thursday afternoon vs Friday night demand patterns</i></p>
+</div>
 
-### Algorithm Comparison
+---
 
-Two unsupervised learning algorithms were evaluated:
+## 🔬 Technical Approach
 
-| Algorithm | Pros | Cons | Selected |
-|-----------|------|------|----------|
-| **KMeans** | Fast, well-defined clusters | Requires pre-defining k, sensitive to outliers | ❌ |
-| **DBScan** | Auto-detects cluster count, handles outliers | Requires parameter tuning | ✅ |
+### Automated DBSCAN Hyperparameter Tuning
 
-**DBScan was selected** because:
-- Automatically identifies optimal number of clusters
-- Eliminates noise/outliers for clearer hot-zones
-- Produces geographically coherent clusters
+The key innovation is **fully automated parameter optimization** that adapts to data density without manual intervention:
 
-## 📁 Project Structure
+#### 🎯 Epsilon Estimation (neighborhood radius)
+- **Method**: K-distance analysis using NearestNeighbors
+- **Formula**: ε = percentile(k-distances) where percentile = min(96, 70 + 0.002 × n_samples)
+- **Logic**: Ensures 70-96% of points have sufficient neighbors for clustering
+
+#### 🔢 Min_samples Calculation (minimum cluster size)
+- **Formula**: min_samples = max(10, 1.5% of observations)
+- **Adaptive scaling**: Low-traffic hours → 10 points minimum, Rush hours → 100+ points
+- **Purpose**: Prevents micro-clusters while adapting to data volume
+
+#### 🔄 Convergence Loop
+- **Target**: Minimum 3 distinct clusters per time window
+- **Strategy**: If insufficient clusters, decrease percentile by 3 and retry
+- **Safety**: Flags error if percentile drops below 45 (no valid solution exists)
+
+### Algorithm Comparison: Why DBSCAN?
+
+Empirical evaluation on Monday 8-9 AM data (3,018 pickups):
+
+| Criterion | KMeans | DBSCAN |
+|-----------|--------|---------|
+| **Cluster count** | Manual selection (elbow + silhouette) | Automatic detection |
+| **Outlier handling** | Forces all points into clusters | Filters ~15-20% noise |
+| **Geographic coherence** | Splits natural zones arbitrarily | Respects spatial continuity |
+| **Reproducibility** | Subjective k choice | Algorithmic parameter tuning |
+
+**Verdict**: DBSCAN selected for automatic adaptation to density variations and cleaner zone identification through outlier removal.
+
+---
+
+## 🏗️ Methodology
+
+### Data Pipeline
+
+**1. Preprocessing**
+- Outlier removal: ±3σ filter on coordinates
+- Temporal decomposition: Extract weekday + hour
+- Dataset splitting: 168 time windows (7 days × 24 hours)
+
+**2. Clustering Workflow**
+```
+For each time window:
+  → Standardize coordinates (zero mean, unit variance)
+  → Estimate epsilon via k-distance percentile
+  → Run DBSCAN with adaptive min_samples
+  → Validate cluster count (≥3 required)
+  → Export results to CSV
+```
+
+**3. Reusable Functions**
+- `estimate_eps()` → Automatic epsilon calculation
+- `get_hot_zones(day, hour)` → Complete clustering pipeline
+- `get_map(day, hour)` → Interactive visualization generator
+
+---
+
+## 📁 Repository Structure
 
 ```
 uber-pickups-hot-zones-detection/
-├── uber_pickups.ipynb      # Analysis notebook
-├── requirements.txt        # Python dependencies
-├── data/                   # Raw Uber pickup data (Apr-Sep 2014)
-│   ├── uber-raw-data-apr14.csv
-│   ├── uber-raw-data-may14.csv
+├── uber_pickups.ipynb          # Analysis notebook with full pipeline
+├── requirements.txt            # Dependencies
+├── data/                       # Raw pickup data (Apr-Sep 2014)
+├── hot_zones/                  # Generated results (168 CSV files)
+│   ├── lundi/                  # Monday (0_1.csv to 23_24.csv)
+│   ├── mardi/                  # Tuesday
 │   └── ...
-├── hot_zones/              # Generated clustering results
-│   ├── lundi/              # Monday clusters (0_1.csv to 23_24.csv)
-│   ├── mardi/              # Tuesday clusters
-│   └── ...
-└── maps/                   # Sample visualization maps (one per day)
-    ├── lundi_7_8.png
-    ├── mardi_5_6.png
-    └── ...
+└── maps/                       # Sample visualizations
 ```
 
-## 🛠️ Installation
+---
 
-### Prerequisites
+## 🚀 Quick Start
 
-- Python 3.8 or higher
-- Jupyter Notebook
+### Installation
 
-### Setup
-
-1. Clone the repository:
 ```bash
+# Clone repository
 git clone https://github.com/JulienRouillard/uber-pickups-hot-zones-detection.git
 cd uber-pickups-hot-zones-detection
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-3. Launch Jupyter Notebook:
-```bash
+# Launch notebook
 jupyter notebook uber_pickups.ipynb
 ```
 
-## 🚀 Usage
+### Usage
 
-### Quick Start - View Results
-
-To visualize existing hot-zones:
-
+**Visualize existing hot-zones:**
 ```python
-# Display hot-zones for Monday from 8 AM to 9 AM
-get_map('lundi', 8)
-
-# Display hot-zones for Friday FROM 6 PM to 7 PM
-get_map('vendredi', 18)
+get_map('lundi', 8)      # Monday 8-9 AM
+get_map('vendredi', 18)  # Friday 6-7 PM
 ```
 
-### Full Pipeline - Regenerate Clusters
-
-To recompute all hot-zones from scratch (⚠️ ~120 minutes):
-
+**Regenerate all clusters** (⚠️ ~120 min):
 ```python
-# Run the clustering loop in the notebook
 for time in data_splited.keys():
     get_hot_zones(day=time[0], hour=time[1])
 ```
 
-This will regenerate all 168 CSV files in `hot_zones/`.
+---
 
-## 💻 Technologies
+## 💻 Tech Stack
 
-- **Data Processing**: `pandas`, `numpy`
-- **Machine Learning**: `scikit-learn` (KMeans, DBScan, StandardScaler)
-- **Geospatial Analysis**: `geopandas`, `shapely`
-- **Visualization**: `plotly`, `matplotlib`, `contextily`
+| Category | Tools |
+|----------|-------|
+| **Language** | Python 3.10+ |
+| **ML/Clustering** | scikit-learn (DBSCAN, KMeans, NearestNeighbors) |
+| **Data Processing** | pandas, numpy |
+| **Geospatial** | geopandas, shapely |
+| **Visualization** | plotly, matplotlib, contextily |
+
+---
+
+## 🎓 Skills Demonstrated
+
+**Technical Competencies:**
+- Unsupervised learning with density-based clustering
+- Automated hyperparameter tuning (k-distance method)
+- Geospatial data processing at scale (4.5M coordinates)
+- Algorithm comparison and selection methodology
+
+**Business Impact:**
+- Clear, actionable zone recommendations for drivers
+- Temporal granularity for hour-by-hour strategy
+
+
+---
 
 ## 📧 Contact
 
 **Julien Rouillard**  
-📫 julien.rouillard@yahoo.fr
+Data Science | Machine Learning Engineering  
+📫 julien.rouillard@yahoo.fr  
+💼 [LinkedIn](https://linkedin.com/in/julien-rouillard) | 🐙 [GitHub](https://github.com/JulienRouillard)
