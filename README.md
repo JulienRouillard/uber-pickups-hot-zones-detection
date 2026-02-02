@@ -176,4 +176,4 @@ for time in data_splited.keys():
 **Julien Rouillard**  
 Data Science | Machine Learning Engineering  
 📫 julien.rouillard@yahoo.fr  
-💼 [LinkedIn](https://linkedin.com/in/julien-rouillard) | 🐙 [GitHub](https://github.com/JulienRouillard)
+💼 [LinkedIn](https://www.linkedin.com/in/julien-rouillard-a738a33a9/) | 🐙 [GitHub](https://github.com/JulienRouillard)
